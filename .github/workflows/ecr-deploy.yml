@@ -3,7 +3,7 @@ name: Ecr Deploy Aws
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   ecr_deploy:
