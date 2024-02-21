@@ -11,17 +11,17 @@ locals {
   vpc_cidr = "122.0.0.0/16"
   azs      = ["us-east-1a", "us-east-1b"]
 
-  container_name = "${local.name}"
+  container_name  = local.name
   container_image = "561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre:latest"
-  container_port = 3000
+  container_port  = 3000
 
   metabase_dns_name = "novarus.work"
 
-  metabase_db_name = "metabaseappdb"
+  metabase_db_name     = "metabaseappdb"
   metabase_db_username = "metabaseUser"
 
   tags = {
-    Name       = local.name
+    Name        = local.name
     Environment = "development"
   }
 }
@@ -96,45 +96,45 @@ module "ecs_service" {
       ]
 
       environment = [
-          {
-            name = "MB_DB_TYPE"
-            value = "postgres"
-          },
-          {
-            name = "MB_DB_DBNAME"
-            value = "${module.db_postgres.db_instance_name}"
-          },
-          {
-            name = "MB_DB_PORT"
-            value = "${module.db_postgres.db_instance_port}"
-          },
-          {
-            name = "MB_DB_USER"
-            value = "${module.db_postgres.db_instance_username}"
-          },
-          {
-            name = "MB_DB_PASS"
-            value = jsondecode(nonsensitive(data.aws_secretsmanager_secret_version.current.secret_string))["password"]
-          },
-          {
-            name = "MB_DB_HOST"
-            value = "${module.db_postgres.db_instance_address}"
-          }
+        {
+          name  = "MB_DB_TYPE"
+          value = "postgres"
+        },
+        {
+          name  = "MB_DB_DBNAME"
+          value = "${module.db_postgres.db_instance_name}"
+        },
+        {
+          name  = "MB_DB_PORT"
+          value = "${module.db_postgres.db_instance_port}"
+        },
+        {
+          name  = "MB_DB_USER"
+          value = "${module.db_postgres.db_instance_username}"
+        },
+        {
+          name  = "MB_DB_PASS"
+          value = jsondecode(nonsensitive(data.aws_secretsmanager_secret_version.current.secret_string))["password"]
+        },
+        {
+          name  = "MB_DB_HOST"
+          value = "${module.db_postgres.db_instance_address}"
+        }
       ]
 
       readonly_root_filesystem = false
 
-      enable_cloudwatch_logging = true
-      create_cloudwatch_log_group = true
-      cloudwatch_log_group_name = "${local.name}-cloudwatch"
+      enable_cloudwatch_logging              = true
+      create_cloudwatch_log_group            = true
+      cloudwatch_log_group_name              = "${local.name}-cloudwatch"
       cloudwatch_log_group_retention_in_days = 1
 
       log_configuration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group                    = "${local.name}-cloudwatch"
-          awslogs-region                   = local.region
-          awslogs-stream-prefix            = local.container_name
+          awslogs-group         = "${local.name}-cloudwatch"
+          awslogs-region        = local.region
+          awslogs-stream-prefix = local.container_name
         }
       }
 
@@ -291,7 +291,7 @@ module "zones" {
   zones = {
     (local.metabase_dns_name) = {
       comment = local.metabase_dns_name
-      
+
       tags = local.tags
     }
   }
@@ -307,16 +307,16 @@ module "records" {
 
   records = [
     {
-      name    = ""
-      type    = "A"
-      alias   = {
+      name = ""
+      type = "A"
+      alias = {
         name    = module.alb.dns_name
         zone_id = module.alb.zone_id
       }
     }
   ]
 
-  depends_on = [module.zones,module.alb]
+  depends_on = [module.zones, module.alb]
 }
 
 ################################################################################
@@ -327,8 +327,8 @@ module "acm" {
   source  = "terraform-aws-modules/acm/aws"
   version = "~> 4.0"
 
-  domain_name  = local.metabase_dns_name
-  zone_id      = module.zones.route53_zone_zone_id["${local.metabase_dns_name}"]
+  domain_name = local.metabase_dns_name
+  zone_id     = module.zones.route53_zone_zone_id["${local.metabase_dns_name}"]
 
   validation_method = "DNS"
 
@@ -397,8 +397,8 @@ module "alb" {
       }
     },
     https = {
-      port     = 443
-      protocol = "HTTPS"
+      port            = 443
+      protocol        = "HTTPS"
       certificate_arn = module.acm.acm_certificate_arn
 
       forward = {
@@ -441,10 +441,10 @@ module "vpc" {
   name = local.name
   cidr = local.vpc_cidr
 
-  azs               = local.azs
-  private_subnets   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
-  public_subnets    = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
-  database_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 96)]
+  azs              = local.azs
+  private_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
+  public_subnets   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
+  database_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 96)]
 
   enable_nat_gateway = true
   single_nat_gateway = true
