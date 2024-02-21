@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'infra/metabase-ecr/**'
 
 jobs:
   ecr_deploy:
