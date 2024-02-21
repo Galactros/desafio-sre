@@ -11,9 +11,9 @@ locals {
   vpc_cidr = "122.0.0.0/16"
   azs      = ["us-east-1a", "us-east-1b"]
 
-  container_name = "${local.name}-frontend"
+  container_name = "${local.name}"
   container_image = "561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre:latest"
-  container_port = 80
+  container_port = 3000
 
   metabase_dns_name = "novarus.work"
 
@@ -62,16 +62,16 @@ module "ecs_service" {
   name        = "${local.name}-service"
   cluster_arn = module.ecs_cluster.arn
 
-  cpu    = 512
-  memory = 1024
+  cpu    = 1024
+  memory = 2048
 
   enable_execute_command = true
 
   container_definitions = {
 
     (local.container_name) = {
-      cpu       = 512
-      memory    = 1024
+      cpu       = 1024
+      memory    = 2048
       essential = true
       image     = local.container_image
       port_mappings = [
@@ -83,19 +83,12 @@ module "ecs_service" {
         }
       ]
 
-      environment = [
-          {
-            name = "MB_JETTY_PORT"
-            value = local.container_port
-          }
-      ]
-
       readonly_root_filesystem = false
 
       enable_cloudwatch_logging = true
       create_cloudwatch_log_group = true
       cloudwatch_log_group_name = "${local.name}-cloudwatch"
-      cloudwatch_log_group_retention_in_days = 7
+      cloudwatch_log_group_retention_in_days = 1
 
       log_configuration = {
         logDriver = "awslogs"
@@ -122,7 +115,7 @@ module "ecs_service" {
     namespace = aws_service_discovery_http_namespace.this.arn
     service = {
       client_alias = {
-        port     = 80
+        port     = local.container_port
         dns_name = local.container_name
       }
       port_name      = local.container_name
@@ -134,16 +127,16 @@ module "ecs_service" {
     service = {
       target_group_arn = module.alb.target_groups["ecs"].arn
       container_name   = local.container_name
-      container_port   = 80
+      container_port   = local.container_port
     }
   }
 
   subnet_ids = module.vpc.private_subnets
   security_group_rules = {
-    alb_ingress_3000 = {
+    alb_ingress = {
       type                     = "ingress"
-      from_port                = 80
-      to_port                  = 80
+      from_port                = local.container_port
+      to_port                  = local.container_port
       protocol                 = "tcp"
       description              = "Service port ${local.container_name}"
       source_security_group_id = module.alb.security_group_id
@@ -300,13 +293,13 @@ module "alb" {
       health_check = {
         enabled             = true
         healthy_threshold   = 5
-        interval            = 30
+        interval            = 60
         matcher             = "200"
-        path                = "/"
+        path                = "/api/health"
         port                = "traffic-port"
         protocol            = "HTTP"
         timeout             = 5
-        unhealthy_threshold = 2
+        unhealthy_threshold = 5
       }
 
       create_attachment = false
