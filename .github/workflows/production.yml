@@ -1,8 +1,11 @@
 name: Build and Deploy ECS
 
 on:
-  push:
-    branches: [ "production" ]
+  pull_request:
+    types:
+      - closed
+    branches:
+      - 'production'
 
 env:
   CONTAINER_NAME: 561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre
