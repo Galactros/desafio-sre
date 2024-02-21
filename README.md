@@ -2,6 +2,7 @@
 
 ## Topologia
 
+![sre drawio](https://github.com/Galactros/desafio-sre/assets/6877766/dbda2b6e-4490-4dae-8309-2a3cc338a24f)
 
 
 ## Ferrramentas utilizadas
