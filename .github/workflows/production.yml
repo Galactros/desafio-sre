@@ -1,0 +1,90 @@
+name: Build and Deploy ECS
+
+on:
+  push:
+    branches: [ "production" ]
+
+env:
+  CONTAINER_NAME: 561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre
+
+permissions:
+  contents: read
+
+jobs:
+  ecr_terraform_apply:
+    name: Deploy Ecr 
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v1
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Terraform Init
+      id: init
+      run: |
+        terraform -chdir=infra/metabase-ecr fmt
+        terraform -chdir=infra/metabase-ecr init -upgrade
+
+    - name: Terraform Apply
+      run: terraform -chdir=infra/metabase-ecr apply -auto-approve
+
+  build_deploy_ecr_image:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $CONTAINER_NAME:$IMAGE_TAG .
+        docker image tag $CONTAINER_NAME:$IMAGE_TAG $CONTAINER_NAME:latest
+        docker push $CONTAINER_NAME:$IMAGE_TAG
+        docker push $CONTAINER_NAME:latest
+
+  fargate_terraform_apply:
+    name: Deploy Fargate 
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v1
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Terraform Init
+      id: init
+      run: |
+        terraform -chdir=infra/metabase-fargate fmt
+        terraform -chdir=infra/metabase-fargate init -upgrade
+
+    - name: Terraform Apply
+      run: terraform -chdir=infra/metabase-fargate apply -auto-approve
