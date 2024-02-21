@@ -17,11 +17,23 @@ locals {
 
   metabase_dns_name = "novarus.work"
 
+  metabase_db_name = "metabaseappdb"
+  metabase_db_username = "metabaseUser"
+
   tags = {
     Name       = local.name
     Environment = "development"
   }
 }
+
+data "aws_secretsmanager_secret" "secrets" {
+  arn = module.db_postgres.db_instance_master_user_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "current" {
+  secret_id = data.aws_secretsmanager_secret.secrets.id
+}
+
 
 ################################################################################
 # Cluster
@@ -81,6 +93,33 @@ module "ecs_service" {
           hostPort      = local.container_port
           protocol      = "tcp"
         }
+      ]
+
+      environment = [
+          {
+            name = "MB_DB_TYPE"
+            value = "postgres"
+          },
+          {
+            name = "MB_DB_DBNAME"
+            value = "${module.db_postgres.db_instance_name}"
+          },
+          {
+            name = "MB_DB_PORT"
+            value = "${module.db_postgres.db_instance_port}"
+          },
+          {
+            name = "MB_DB_USER"
+            value = "${module.db_postgres.db_instance_username}"
+          },
+          {
+            name = "MB_DB_PASS"
+            value = jsondecode(nonsensitive(data.aws_secretsmanager_secret_version.current.secret_string))["password"]
+          },
+          {
+            name = "MB_DB_HOST"
+            value = "${module.db_postgres.db_instance_address}"
+          }
       ]
 
       readonly_root_filesystem = false
@@ -151,6 +190,92 @@ module "ecs_service" {
   }
 
   depends_on = [module.alb.http]
+
+  tags = local.tags
+}
+
+################################################################################
+# RDS Module
+################################################################################
+
+module "db_postgres" {
+  source = "terraform-aws-modules/rds/aws"
+
+  identifier = "${local.name}-postgres"
+
+  engine               = "postgres"
+  engine_version       = "14"
+  family               = "postgres14"
+  major_engine_version = "14"
+  instance_class       = "db.t3.micro"
+
+  allocated_storage     = 10
+  max_allocated_storage = 20
+
+  db_name  = local.metabase_db_name
+  username = local.metabase_db_username
+  port     = 5432
+
+  manage_master_user_password                       = true
+  manage_master_user_password_rotation              = true
+  master_user_password_rotate_immediately           = false
+  master_user_password_rotation_schedule_expression = "rate(15 days)"
+
+  multi_az               = true
+  db_subnet_group_name   = module.vpc.database_subnet_group
+  vpc_security_group_ids = [module.security_group.security_group_id]
+
+  maintenance_window              = "Mon:00:00-Mon:03:00"
+  backup_window                   = "03:00-06:00"
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+  create_cloudwatch_log_group     = true
+
+  skip_final_snapshot = true
+  deletion_protection = false
+
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+  create_monitoring_role                = true
+  monitoring_interval                   = 60
+
+  parameters = [
+    {
+      name  = "autovacuum"
+      value = 1
+    },
+    {
+      name  = "client_encoding"
+      value = "utf8"
+    }
+  ]
+
+  tags = local.tags
+  db_option_group_tags = {
+    "Sensitive" = "low"
+  }
+  db_parameter_group_tags = {
+    "Sensitive" = "low"
+  }
+}
+
+module "security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = "${local.name}-postgres-sg"
+  description = "Postgres security group"
+  vpc_id      = module.vpc.vpc_id
+
+  # ingress
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 5432
+      to_port     = 5432
+      protocol    = "tcp"
+      description = "Postgres access from within VPC"
+      cidr_blocks = module.vpc.vpc_cidr_block
+    },
+  ]
 
   tags = local.tags
 }
@@ -319,9 +444,12 @@ module "vpc" {
   azs               = local.azs
   private_subnets   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
   public_subnets    = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
+  database_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 96)]
 
   enable_nat_gateway = true
   single_nat_gateway = true
+
+  create_database_subnet_group = true
 
   tags = local.tags
 }
