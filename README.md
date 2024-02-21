@@ -62,3 +62,39 @@
 * Pegue os servidores de nomes que o terraform irá dar output
 * Configure no dominio privado e aguarde alguns minutos
 * Após isso basta acessar via o dominio configurado
+
+## Fluxo básico de alterações no projeto
+
+```mermaid
+---
+title: Git flow
+---
+gitGraph
+   commit
+   branch homolog
+   branch production
+   branch feature1
+   checkout feature1
+   commit
+   commit
+   checkout main
+   merge feature1
+   branch feature2
+   checkout feature2
+   commit
+   commit
+   checkout main
+   merge feature2
+   checkout homolog
+   merge main
+   checkout production
+   merge homolog
+   checkout main
+   merge production
+   branch feature3
+   checkout feature3
+   commit
+   commit
+   checkout main
+   merge feature3
+```
