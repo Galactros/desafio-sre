@@ -1,4 +1,4 @@
-name: Build and Deploy ECS
+name: Build a image 
 
 on:
   push:
@@ -11,34 +11,17 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    environment: production
+    environment: development
 
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build a image
       id: build-image
       env:
         IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $CONTAINER_NAME:$IMAGE_TAG .
-        docker image tag $CONTAINER_NAME:$IMAGE_TAG $CONTAINER_NAME:latest
-        docker push $CONTAINER_NAME:$IMAGE_TAG
-        docker push $CONTAINER_NAME:latest
-        echo "image=$CONTAINER_NAME:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
+      run: docker build -t $CONTAINER_NAME:$IMAGE_TAG .
