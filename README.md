@@ -6,9 +6,9 @@ Levando em consideração o cenário e os requisitos, o caminho que decidi segui
 
 ## Pré-Requisitos
 
-* **Terraform**
-* **Aws Cli Config**
-* **Docker**
+* **Terraform - v1.7.4**
+* **Aws Cli - 2.15.21**
+* **Docker -  24.0.5**
 * **Github**
 
 ## Topologia
