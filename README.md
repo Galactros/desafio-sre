@@ -1,10 +1,15 @@
 # Desafio SRE
 
+## Caminho escolhido para resolução do desafio
+
+Levando em consideração o cenário e os requisitos, o caminho que decidi seguir foi utilizar a plataforma do GitHub para armazenar o projeto utilizando os gitActions para gerar os workflows para mim. Para a Infraestrutura como Código (IaC), optei por utilizar o Terraform, pois é uma das ferramentas de infraestrutura de código nas quais possuo bastante experiência. Em relação aos recursos na AWS, optei por utilizar o Fargate junto com o RDS e outros recursos que dão suporte a eles.
+
 ## Pré-Requisitos
 
 * **Terraform**
 * **Aws Cli Config**
 * **Docker**
+* **Github**
 
 ## Topologia
 
