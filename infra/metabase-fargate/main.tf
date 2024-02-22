@@ -114,7 +114,7 @@ module "ecs_service" {
         },
         {
           name  = "MB_DB_PASS"
-          value = jsondecode(nonsensitive(data.aws_secretsmanager_secret_version.current.secret_string))["password"]
+          value = jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["password"]
         },
         {
           name  = "MB_DB_HOST"
