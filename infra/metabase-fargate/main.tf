@@ -12,7 +12,7 @@ locals {
   azs      = ["us-east-1a", "us-east-1b"]
 
   container_name  = local.name
-  container_image = "561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre:latest"
+  container_image = "561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre"
   container_port  = 3000
 
   metabase_dns_name = "novarus.work"
@@ -85,7 +85,7 @@ module "ecs_service" {
       cpu       = 1024
       memory    = 2048
       essential = true
-      image     = local.container_image
+      image     = "${local.container_image}:${var.image_tag}"
       port_mappings = [
         {
           name          = local.container_name
