@@ -87,4 +87,6 @@ jobs:
         terraform -chdir=infra/metabase-fargate init -upgrade
 
     - name: Terraform Apply
-      run: terraform -chdir=infra/metabase-fargate apply -auto-approve
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: terraform -chdir=infra/metabase-fargate apply -var "image_tag=$IMAGE_TAG" -auto-approve

@@ -1,10 +1,15 @@
 # Desafio SRE
 
+## Caminho escolhido para resolução do desafio
+
+Levando em consideração o cenário e os requisitos, o caminho que decidi seguir foi utilizar a plataforma do GitHub para armazenar o projeto utilizando os gitActions para gerar os workflows para mim. Para a Infraestrutura como Código (IaC), optei por utilizar o Terraform, pois é uma das ferramentas de infraestrutura de código nas quais possuo bastante experiência. Em relação aos recursos na AWS, optei por utilizar o Fargate junto com o RDS e outros recursos que dão suporte a eles.
+
 ## Pré-Requisitos
 
-* **Terraform**
-* **Aws Cli Config**
-* **Docker**
+* **Terraform - v1.7.4**
+* **Aws Cli - 2.15.21**
+* **Docker -  24.0.5**
+* **Github**
 
 ## Topologia
 
@@ -56,10 +61,11 @@
 * Vá para o diretorio infra/metabase-fargate
 * Execute o comando: ``` terraform init -upgrade ```
 *  ``` terraform apply ```
+* Ps: Para que essa etapa seja feita com sucesso será necessaria a configuração dos servidores de nomes. Caso haja falha na execução do apply execute novamente apos configuração do dns para que o mesmo seja concretizado.
 
 #### Configure os servidores de nomes no dominio privado
 
-* Pegue os servidores de nomes que o terraform irá dar output
+* Pegue os servidores de nomes no route53
 * Configure no dominio privado e aguarde alguns minutos
 * Após isso basta acessar via o dominio configurado
 
