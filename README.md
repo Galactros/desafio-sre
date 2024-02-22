@@ -56,10 +56,11 @@
 * Vá para o diretorio infra/metabase-fargate
 * Execute o comando: ``` terraform init -upgrade ```
 *  ``` terraform apply ```
+* Ps: Para que essa etapa seja feita com sucesso será necessaria a configuração dos servidores de nomes. Caso haja falha na execução do apply execute novamente apos configuração do dns para que o mesmo seja concretizado.
 
 #### Configure os servidores de nomes no dominio privado
 
-* Pegue os servidores de nomes que o terraform irá dar output
+* Pegue os servidores de nomes no route53
 * Configure no dominio privado e aguarde alguns minutos
 * Após isso basta acessar via o dominio configurado
 
