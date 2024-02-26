@@ -65,7 +65,7 @@ Levando em consideração o cenário e os requisitos, o caminho que decidi segui
 
 #### Configure os servidores de nomes no dominio privado
 
-* Pegue os servidores de nomes no route53
+* Pegue os servidores de nomes no route53 
 * Configure no dominio privado e aguarde alguns minutos
 * Após isso basta acessar via o dominio configurado
 
