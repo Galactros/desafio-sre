@@ -9,10 +9,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "metabase-tfstate-bucket"
+    bucket         = "metabase-tfstate-null-bucket"
     key            = "fargate/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "metabase-tfstate-state-locking"
+    dynamodb_table = "metabase-tfstate-null-state-locking"
     encrypt        = true
   }
 

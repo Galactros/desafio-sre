@@ -12,7 +12,7 @@ locals {
   azs      = ["us-east-1a", "us-east-1b"]
 
   container_name  = local.name
-  container_image = "561531741486.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre"
+  container_image = "730335621330.dkr.ecr.us-east-1.amazonaws.com/ecr-desafio-sre"
   container_port  = 3000
 
   metabase_dns_name = "novarus.work"
@@ -44,19 +44,39 @@ module "ecs_cluster" {
 
   cluster_name = local.name
 
-  cluster_configuration = {
-    execute_command_configuration = {
-      logging = "OVERRIDE"
-      log_configuration = {
-        cloud_watch_log_group_name = "${local.name}-cloudwatch"
+  default_capacity_provider_use_fargate = false
+  autoscaling_capacity_providers = {
+
+    ex_1 = {
+      auto_scaling_group_arn         = module.autoscaling["ex_1"].autoscaling_group_arn
+      managed_termination_protection = "ENABLED"
+
+      managed_scaling = {
+        maximum_scaling_step_size = 2
+        minimum_scaling_step_size = 1
+        status                    = "ENABLED"
+        target_capacity           = 90
+      }
+
+      default_capacity_provider_strategy = {
+        weight = 60
+        base   = 20
       }
     }
-  }
 
-  fargate_capacity_providers = {
-    FARGATE_SPOT = {
+    ex_2 = {
+      auto_scaling_group_arn         = module.autoscaling["ex_2"].autoscaling_group_arn
+      managed_termination_protection = "ENABLED"
+
+      managed_scaling = {
+        maximum_scaling_step_size = 2
+        minimum_scaling_step_size = 1
+        status                    = "ENABLED"
+        target_capacity           = 90
+      }
+
       default_capacity_provider_strategy = {
-        weight = 100
+        weight = 40
       }
     }
   }
@@ -74,16 +94,25 @@ module "ecs_service" {
   name        = "${local.name}-service"
   cluster_arn = module.ecs_cluster.arn
 
-  cpu    = 1024
-  memory = 2048
+  requires_compatibilities = ["EC2"]
+  capacity_provider_strategy = {
+    ex_1 = {
+      capacity_provider = module.ecs_cluster.autoscaling_capacity_providers["ex_1"].name
+      weight            = 1
+      base              = 1
+    }
+  }
+
+  cpu    = 256
+  memory = 512
 
   enable_execute_command = true
 
   container_definitions = {
 
     (local.container_name) = {
-      cpu       = 1024
-      memory    = 2048
+      cpu       = 256
+      memory    = 512
       essential = true
       image     = "${local.container_image}:${var.image_tag}"
       port_mappings = [
@@ -119,6 +148,10 @@ module "ecs_service" {
         {
           name  = "MB_DB_HOST"
           value = "${module.db_postgres.db_instance_address}"
+        },
+        {
+          name  = "JAVA_OPTS"
+          value = "-Xmx300m"
         }
       ]
 
@@ -146,7 +179,7 @@ module "ecs_service" {
         }
       }
 
-      memory_reservation = 100
+      memory_reservation = 392
     }
   }
 
@@ -345,6 +378,10 @@ module "acm" {
 # Supporting Resources
 ################################################################################
 
+data "aws_ssm_parameter" "ecs_optimized_ami" {
+  name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended"
+}
+
 resource "aws_service_discovery_http_namespace" "this" {
   name        = "${local.name}-namespace"
   description = "CloudMap namespace for ${local.name}"
@@ -418,18 +455,112 @@ module "alb" {
       health_check = {
         enabled             = true
         healthy_threshold   = 5
-        interval            = 60
+        interval            = 180
         matcher             = "200"
         path                = "/api/health"
         port                = "traffic-port"
         protocol            = "HTTP"
-        timeout             = 5
-        unhealthy_threshold = 5
+        timeout             = 10
+        unhealthy_threshold = 10
       }
 
       create_attachment = false
     }
   }
+
+  tags = local.tags
+}
+
+module "autoscaling" {
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "~> 6.5"
+
+  for_each = {
+    ex_1 = {
+      instance_type              = "t2.micro"
+      use_mixed_instances_policy = false
+      mixed_instances_policy = {}
+      user_data                  = <<-EOT
+        #!/bin/bash
+
+        cat <<'EOF' >> /etc/ecs/ecs.config
+        ECS_CLUSTER=${local.name}
+        ECS_LOGLEVEL=debug
+        ECS_CONTAINER_INSTANCE_TAGS=${jsonencode(local.tags)}
+        ECS_ENABLE_TASK_IAM_ROLE=true
+        EOF
+      EOT
+    }
+
+    ex_2 = {
+      instance_type              = "t2.micro"
+      use_mixed_instances_policy = false
+      mixed_instances_policy = {}
+      user_data                  = <<-EOT
+        #!/bin/bash
+
+        cat <<'EOF' >> /etc/ecs/ecs.config
+        ECS_CLUSTER=${local.name}
+        ECS_LOGLEVEL=debug
+        ECS_CONTAINER_INSTANCE_TAGS=${jsonencode(local.tags)}
+        ECS_ENABLE_TASK_IAM_ROLE=true
+        EOF
+      EOT
+    }
+  }
+
+  name = "${local.name}-${each.key}"
+
+  image_id      = jsondecode(data.aws_ssm_parameter.ecs_optimized_ami.value)["image_id"]
+  instance_type = each.value.instance_type
+
+  security_groups                 = [module.autoscaling_sg.security_group_id]
+  user_data                       = base64encode(each.value.user_data)
+  ignore_desired_capacity_changes = true
+
+  create_iam_instance_profile = true
+  iam_role_name               = local.name
+  iam_role_description        = "ECS role for ${local.name}"
+  iam_role_policies = {
+    AmazonEC2ContainerServiceforEC2Role = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+    AmazonSSMManagedInstanceCore        = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  }
+
+  vpc_zone_identifier = module.vpc.private_subnets
+  health_check_type   = "EC2"
+  min_size            = 1
+  max_size            = 5
+  desired_capacity    = 2
+
+  autoscaling_group_tags = {
+    AmazonECSManaged = true
+  }
+
+  protect_from_scale_in = true
+
+  use_mixed_instances_policy = each.value.use_mixed_instances_policy
+  mixed_instances_policy     = each.value.mixed_instances_policy
+
+  tags = local.tags
+}
+
+module "autoscaling_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = local.name
+  description = "Autoscaling group security group"
+  vpc_id      = module.vpc.vpc_id
+
+  computed_ingress_with_source_security_group_id = [
+    {
+      rule                     = "all_http"
+      source_security_group_id = module.alb.security_group_id
+    }
+  ]
+  number_of_computed_ingress_with_source_security_group_id = 0
+
+  egress_rules = ["all-all"]
 
   tags = local.tags
 }
